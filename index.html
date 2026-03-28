@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoL Ability Damage Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050d18;--bg2:#091428;--bg3:#0d1e35;--panel:#0a1a2e;--gold:#c89b3c;--gold-l:#f0d078;--gold-d:#6b5120;--blue:#0ac8b9;--blue-d:#084d48;--border:#1a2a3d;--border-g:#6b5120;--text:#c8aa6e;--text-b:#f0e6d3;--text-d:#4a5568;--text-m:#8899aa}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='86'%3E%3Cpath d='M25 0L50 14.4v28.8L25 57.6 0 43.2V14.4L25 0zm0 28.8L50 43.2v28.8L25 86 0 72.4V43.2L25 28.8z' fill='none' stroke='%23101e30' stroke-width='0.8'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.7}
+header{position:relative;z-index:10;padding:12px 20px;border-bottom:1px solid var(--border-g);display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);line-height:1;white-space:nowrap}
+.logo em{color:var(--blue);font-style:normal}
+.subtitle{font-size:10px;color:var(--text-d);letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px}
+.hc{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-left:auto}
+.ctrl{display:flex;align-items:center;gap:6px}
+.lbl{font-size:10px;color:var(--text-d);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+input[type=search]{background:var(--bg2);border:1px solid var(--border);color:var(--text-b);font-family:'Barlow',sans-serif;font-size:13px;padding:5px 10px;outline:none;width:150px;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%)}
+input[type=search]:focus{border-color:var(--gold-d)}
+input[type=search]::placeholder{color:var(--text-d)}
+select{background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:'Barlow',sans-serif;font-size:12px;padding:4px 7px;outline:none;cursor:pointer}
+.rank-b{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--gold);min-width:12px;text-align:center}
+input[type=range]{-webkit-appearance:none;width:75px;height:3px;background:var(--border);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;background:var(--gold);cursor:pointer;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%)}
+.slots{display:flex;gap:3px}
+.sp{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.1em;padding:4px 10px;border:1px solid var(--border);background:var(--bg2);color:var(--text-d);cursor:pointer;clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);transition:all .15s;user-select:none}
+.sp.on-Q{background:#1a2d4a;border-color:#3399ff;color:#3399ff}
+.sp.on-W{background:#1a3a2a;border-color:#33cc77;color:#33cc77}
+.sp.on-E{background:#3a2a0a;border-color:#ffaa33;color:#ffaa33}
+.sp.on-R{background:#3a1010;border-color:#ff4444;color:#ff4444}
+.main{position:relative;z-index:1;flex:1;display:flex;min-height:0;overflow:hidden}
+.lpanel{width:230px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden}
+.ph{padding:9px 13px 7px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-d);border-bottom:1px solid var(--border);flex-shrink:0}
+.cl{flex:1;overflow-y:auto;padding:3px 0}
+.cl::-webkit-scrollbar{width:4px}
+.cl::-webkit-scrollbar-thumb{background:var(--border-g);border-radius:2px}
+.ci{padding:6px 13px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:13px;transition:background .1s;border-left:2px solid transparent}
+.ci:hover{background:rgba(200,155,60,.06)}
+.ci.sel{background:rgba(10,200,185,.08);border-left-color:var(--blue)}
+.cn{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px;color:var(--text-b);flex:1}
+.rd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sc{padding:7px 13px;font-size:11px;color:var(--text-d);border-top:1px solid var(--border);flex-shrink:0;letter-spacing:.05em}
+.sc span{color:var(--blue)}
+.cb{font-size:11px;color:var(--text-d);cursor:pointer;margin-left:7px;text-decoration:underline}
+.cb:hover{color:var(--text)}
+.ca{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.cc{padding:9px 15px 7px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.vb-g{display:flex;gap:3px}
+.vb{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:4px 10px;border:1px solid var(--border);background:var(--bg2);color:var(--text-d);cursor:pointer;transition:all .15s;user-select:none}
+.vb.act{background:var(--bg3);border-color:var(--gold-d);color:var(--gold)}
+.leg{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
+.li{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-m);cursor:pointer;user-select:none;transition:opacity .15s}
+.li.dim{opacity:.3}
+.ld{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+#chart-wrap{flex:1;position:relative;min-height:0}
+#chart-svg{width:100%;height:100%}
+#hint{position:absolute;bottom:10px;right:14px;font-size:10px;color:var(--text-d);letter-spacing:.08em;pointer-events:none}
+#tt{position:fixed;background:var(--bg3);border:1px solid var(--border-g);padding:9px 13px;pointer-events:none;opacity:0;transition:opacity .15s;font-size:12px;z-index:100;max-width:210px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.ttn{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;color:var(--text-b);margin-bottom:5px}
+.ttr{display:flex;justify-content:space-between;gap:14px;margin-bottom:2px}
+.ttl{color:var(--text-d)}
+.ttv{font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--text-b)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="subtitle">League of Legends · Raw Game Data · 172 Champions</div>
+    <div class="logo">Ability <em>Damage</em> Explorer</div>
+  </div>
+  <div class="hc">
+    <div class="ctrl"><input type="search" id="srch" placeholder="Search champion…" oninput="filt()"></div>
+    <div class="ctrl"><span class="lbl">Slot</span>
+      <div class="slots" id="slots">
+        <div class="sp on-Q" data-s="Q" onclick="togSlot('Q')">Q</div>
+        <div class="sp on-W" data-s="W" onclick="togSlot('W')">W</div>
+        <div class="sp on-E" data-s="E" onclick="togSlot('E')">E</div>
+        <div class="sp on-R" data-s="R" onclick="togSlot('R')">R</div>
+      </div>
+    </div>
+    <div class="ctrl"><span class="lbl">Rank</span>
+      <input type="range" id="rsl" min="1" max="5" value="5" oninput="setRank(+this.value)">
+      <span class="rank-b" id="rlbl">5</span>
+    </div>
+    <div class="ctrl"><span class="lbl">Role</span>
+      <select id="role" onchange="filt()">
+        <option value="">All</option>
+        <option>Fighter</option><option>Mage</option><option>Assassin</option>
+        <option>Tank</option><option>Support</option><option>Marksman</option>
+      </select>
+    </div>
+    <div class="ctrl"><span class="lbl">Color by</span>
+      <select id="colorby" onchange="draw()">
+        <option value="slot">Slot</option>
+        <option value="role">Role</option>
+        <option value="dmgtype">Dmg Type</option>
+      </select>
+    </div>
+  </div>
+</header>
+<div class="main">
+  <div class="lpanel">
+    <div class="ph">Champions <span id="lc" style="color:var(--text-m);font-weight:400"></span></div>
+    <div class="cl" id="cl"></div>
+    <div class="sc"><span id="sn">0</span> selected <span class="cb" onclick="clrSel()">clear</span></div>
+  </div>
+  <div class="ca">
+    <div class="cc">
+      <div class="vb-g">
+        <button class="vb act" id="vbar" onclick="setView('bar')">Bar Chart</button>
+        <button class="vb" id="vscat" onclick="setView('scatter')">Scatter</button>
+        <button class="vb" id="vscale" onclick="setView('scale')">Scaling Curves</button>
+      </div>
+      <div class="leg" id="leg"></div>
+    </div>
+    <div id="chart-wrap">
+      <svg id="chart-svg"></svg>
+      <div id="hint"></div>
+    </div>
+  </div>
+</div>
+<div id="tt"></div>
+<script>
+const RAW=[{"n":"Aatrox","id":"aatrox","role":"Fighter","dmg":{"Q":"P","W":"P","E":"-","R":"-"},"Q":{"v":[37.5,93.8,150.0,206.2,262.5],"r":0.9,"c":3},"W":{"v":[30.0,40.0,50.0,60.0,70.0],"r":0.4,"c":1}},{"n":"Ahri","id":"ahri","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[35.0,60.0,85.0,110.0,135.0],"r":null,"c":1},"W":{"v":[40.0,60.0,80.0,100.0,120.0],"r":0.4,"c":1},"E":{"v":[80.0,120.0,160.0,200.0,240.0],"r":0.85,"c":1},"R":{"v":[75.0,125.0,175.0,225.0,275.0],"r":null,"c":1}},{"n":"Akali","id":"akali","role":"Assassin","dmg":{"Q":"M","W":"-","E":"P","R":"M"},"Q":{"v":[45.0,70.0,95.0,120.0,145.0],"r":0.65,"c":1},"E":{"v":[70.0,140.0,210.0,280.0,350.0],"r":1.0,"c":1},"R":{"v":[110.0,220.0,330.0,440.0,550.0],"r":0.3,"c":1}},{"n":"Akshan","id":"akshan","role":"Marksman","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[45.0,75.0,105.0,135.0,165.0],"r":0.7,"c":1},"E":{"v":[8.0,16.0,24.0,32.0,40.0],"r":0.25,"c":1},"R":{"v":[25.0,35.0,45.0,55.0,65.0],"r":0.15,"c":1}},{"n":"Alistar","id":"alistar","role":"Tank","dmg":{"Q":"M","W":"M","E":"-","R":"-"},"Q":{"v":[60.0,100.0,140.0,180.0,220.0],"r":0.8,"c":1},"W":{"v":[55.0,110.0,165.0,220.0,275.0],"r":1.0,"c":1},"R":{"v":[55.0,65.0,75.0,85.0,95.0],"r":null,"c":1}},{"n":"Ambessa","id":"ambessa","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[40.0,60.0,80.0,100.0,120.0],"r":null,"c":1},"W":{"v":[50.0,75.0,100.0,125.0,150.0],"r":null,"c":1},"E":{"v":[40.0,60.0,80.0,100.0,120.0],"r":0.5,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":0.8,"c":1}},{"n":"Amumu","id":"amumu","role":"Tank","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"W":{"v":[10.0,10.0,10.0,10.0,10.0],"r":0.005,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Anivia","id":"anivia","role":"Mage","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[50.0,70.0,90.0,110.0,130.0],"r":null,"c":1},"E":{"v":[55.0,80.0,105.0,130.0,155.0],"r":null,"c":1},"R":{"v":[30.0,45.0,60.0,75.0,90.0],"r":null,"c":1}},{"n":"Annie","id":"annie","role":"Mage","dmg":{"Q":"M","W":"M","E":"-","R":"M"},"Q":{"v":[80.0,125.0,170.0,215.0,260.0],"r":0.8,"c":1},"W":{"v":[70.0,110.0,150.0,190.0,230.0],"r":0.8,"c":1},"E":{"v":[25.0,35.0,45.0,55.0,65.0],"r":null,"c":1},"R":{"v":[150.0,275.0,400.0,525.0,650.0],"r":0.1,"c":1}},{"n":"Aphelios","id":"aphelios","role":"Marksman","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[125.0,175.0,225.0,275.0,325.0],"r":null,"c":1},"E":{"v":[125.0,175.0,225.0,275.0,325.0],"r":null,"c":1},"R":{"v":[125.0,175.0,225.0,275.0,325.0],"r":null,"c":1}},{"n":"Ashe","id":"ashe","role":"Marksman","dmg":{"Q":"P","W":"P","E":"-","R":"M"},"W":{"v":[60.0,95.0,130.0,165.0,200.0],"r":1.0,"c":1},"R":{"v":[200.0,400.0,600.0,800.0,1000.0],"r":1.2,"c":1}},{"n":"Aurelionsol","id":"aurelionsol","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[60.0,70.0,80.0,90.0,100.0],"r":0.3,"c":1},"E":{"v":[10.0,15.0,20.0,25.0,30.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":0.75,"c":1}},{"n":"Aurora","id":"aurora","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[45.0,70.0,95.0,120.0,145.0],"r":null,"c":1},"E":{"v":[70.0,110.0,150.0,190.0,230.0],"r":null,"c":1},"R":{"v":[175.0,275.0,375.0,475.0,575.0],"r":null,"c":1}},{"n":"Azir","id":"azir","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[60.0,80.0,100.0,120.0,140.0],"r":0.55,"c":1},"W":{"v":[50.0,65.0,80.0,95.0,110.0],"r":0.65,"c":1},"E":{"v":[70.0,110.0,150.0,190.0,230.0],"r":null,"c":1},"R":{"v":[200.0,400.0,600.0,800.0,1000.0],"r":null,"c":1}},{"n":"Bard","id":"bard","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"-"},"Q":{"v":[80.0,120.0,160.0,200.0,240.0],"r":0.8,"c":1}},{"n":"Belveth","id":"belveth","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[0.0,5.0,10.0,15.0,20.0],"r":1.0,"c":1},"W":{"v":[70.0,110.0,150.0,190.0,230.0],"r":null,"c":1},"E":{"v":[6.0,7.0,8.0,9.0,10.0],"r":null,"c":1},"R":{"v":[150.0,200.0,250.0,300.0,350.0],"r":null,"c":1}},{"n":"Blitzcrank","id":"blitzcrank","role":"Tank","dmg":{"Q":"-","W":"-","E":"M","R":"M"},"Q":{"v":[110.0,160.0,210.0,260.0,310.0],"r":1.2,"c":1},"R":{"v":[275.0,400.0,525.0,650.0,775.0],"r":0.7,"c":1}},{"n":"Brand","id":"brand","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[70.0,100.0,130.0,160.0,190.0],"r":null,"c":1},"W":{"v":[75.0,120.0,165.0,210.0,255.0],"r":0.7,"c":1},"E":{"v":[55.0,80.0,105.0,130.0,155.0],"r":0.6,"c":1},"R":{"v":[100.0,175.0,250.0,325.0,400.0],"r":0.3,"c":1}},{"n":"Braum","id":"braum","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"M"},"Q":{"v":[75.0,120.0,165.0,210.0,255.0],"r":null,"c":1},"W":{"v":[400.0,400.0,400.0,400.0,400.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Briar","id":"briar","role":"Fighter","dmg":{"Q":"-","W":"P","E":"P","R":"P"},"Q":{"v":[60.0,85.0,110.0,135.0,160.0],"r":null,"c":1},"W":{"v":[5.0,20.0,35.0,50.0,65.0],"r":null,"c":1},"E":{"v":[140.0,215.0,290.0,365.0,440.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":0.2,"c":1}},{"n":"Caitlyn","id":"caitlyn","role":"Marksman","dmg":{"Q":"P","W":"-","E":"-","R":"P"},"Q":{"v":[50.0,90.0,130.0,170.0,210.0],"r":2.05,"c":1},"W":{"v":[35.0,80.0,125.0,170.0,215.0],"r":0.3,"c":1},"E":{"v":[80.0,130.0,180.0,230.0,280.0],"r":null,"c":1},"R":{"v":[300.0,475.0,650.0,825.0,1000.0],"r":1.0,"c":1}},{"n":"Camille","id":"camille","role":"Fighter","dmg":{"Q":"P","W":"M","E":"T","R":"-"},"W":{"v":[60.0,85.0,110.0,135.0,160.0],"r":0.6,"c":1},"E":{"v":[60.0,90.0,120.0,150.0,180.0],"r":0.75,"c":1},"R":{"v":[4.0,6.0,8.0,10.0,12.0],"r":null,"c":1}},{"n":"Cassiopeia","id":"cassiopeia","role":"Mage","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[75.0,110.0,145.0,180.0,215.0],"r":null,"c":1},"W":{"v":[20.0,25.0,30.0,35.0,40.0],"r":null,"c":1},"E":{"v":[20.0,43.0,66.0,89.0,112.0],"r":0.1,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":0.5,"c":1}},{"n":"Chogath","id":"chogath","role":"Tank","dmg":{"Q":"M","W":"M","E":"M","R":"T"},"Q":{"v":[80.0,135.0,190.0,245.0,300.0],"r":null,"c":1},"E":{"v":[20.0,40.0,60.0,80.0,100.0],"r":0.3,"c":1},"R":{"v":[300.0,475.0,650.0,825.0,1000.0],"r":null,"c":1}},{"n":"Corki","id":"corki","role":"Marksman","dmg":{"Q":"M","W":"P","E":"P","R":"M"},"Q":{"v":[60.0,105.0,150.0,195.0,240.0],"r":1.25,"c":1},"W":{"v":[150.0,225.0,300.0,375.0,450.0],"r":1.5,"c":1},"E":{"v":[80.0,130.0,180.0,230.0,280.0],"r":2.4,"c":1},"R":{"v":[90.0,170.0,250.0,330.0,410.0],"r":0.85,"c":1}},{"n":"Darius","id":"darius","role":"Fighter","dmg":{"Q":"P","W":"-","E":"-","R":"T"},"R":{"v":[125.0,250.0,375.0,500.0,625.0],"r":null,"c":1}},{"n":"Diana","id":"diana","role":"Fighter","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[70.0,105.0,140.0,175.0,210.0],"r":0.7,"c":1},"W":{"v":[20.0,32.0,44.0,56.0,68.0],"r":0.18,"c":1},"E":{"v":[50.0,70.0,90.0,110.0,130.0],"r":0.6,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Draven","id":"draven","role":"Marksman","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[40.0,45.0,50.0,55.0,60.0],"r":null,"c":1},"E":{"v":[75.0,110.0,145.0,180.0,215.0],"r":null,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Drmundo","id":"drmundo","role":"Tank","dmg":{"Q":"M","W":"M","E":"P","R":"-"},"Q":{"v":[80.0,130.0,180.0,230.0,280.0],"r":null,"c":1},"W":{"v":[5.0,8.8,12.5,16.2,20.0],"r":null,"c":1},"E":{"v":[5.0,15.0,25.0,35.0,45.0],"r":null,"c":1}},{"n":"Ekko","id":"ekko","role":"Assassin","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[80.0,95.0,110.0,125.0,140.0],"r":null,"c":1},"W":{"v":[15.0,15.0,15.0,15.0,15.0],"r":null,"c":1},"R":{"v":[200.0,350.0,500.0,650.0,800.0],"r":null,"c":1}},{"n":"Elise","id":"elise","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[40.0,70.0,100.0,130.0,160.0],"r":0.03,"c":1},"W":{"v":[60.0,100.0,140.0,180.0,220.0],"r":0.75,"c":1},"R":{"v":[10.0,20.0,30.0,40.0,50.0],"r":0.15,"c":1}},{"n":"Evelynn","id":"evelynn","role":"Assassin","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[30.0,35.0,40.0,45.0,50.0],"r":0.25,"c":1},"W":{"v":[250.0,300.0,350.0,400.0,450.0],"r":null,"c":1},"E":{"v":[60.0,90.0,120.0,150.0,180.0],"r":null,"c":1}},{"n":"Ezreal","id":"ezreal","role":"Marksman","dmg":{"Q":"P","W":"M","E":"M","R":"M"},"Q":{"v":[20.0,45.0,70.0,95.0,120.0],"r":null,"c":1},"W":{"v":[80.0,135.0,190.0,245.0,300.0],"r":0.9,"c":1},"E":{"v":[80.0,130.0,180.0,230.0,280.0],"r":0.75,"c":1},"R":{"v":[350.0,550.0,750.0,950.0,1150.0],"r":0.9,"c":1}},{"n":"Fiddlesticks","id":"fiddlesticks","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[40.0,60.0,80.0,100.0,120.0],"r":null,"c":1},"W":{"v":[60.0,90.0,120.0,150.0,180.0],"r":null,"c":1},"E":{"v":[70.0,105.0,140.0,175.0,210.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":0.5,"c":1}},{"n":"Fiora","id":"fiora","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"T"},"Q":{"v":[70.0,80.0,90.0,100.0,110.0],"r":1.1,"c":1},"W":{"v":[110.0,150.0,190.0,230.0,270.0],"r":null,"c":1}},{"n":"Fizz","id":"fizz","role":"Assassin","dmg":{"Q":"P","W":"M","E":"M","R":"M"},"W":{"v":[50.0,75.0,100.0,125.0,150.0],"r":null,"c":1},"E":{"v":[80.0,130.0,180.0,230.0,280.0],"r":null,"c":1},"R":{"v":[180.0,300.0,420.0,540.0,660.0],"r":0.6,"c":1}},{"n":"Galio","id":"galio","role":"Tank","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[70.0,105.0,140.0,175.0,210.0],"r":null,"c":1},"W":{"v":[20.0,30.0,40.0,50.0,60.0],"r":null,"c":1},"E":{"v":[90.0,130.0,170.0,210.0,250.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Gangplank","id":"gangplank","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"M"},"Q":{"v":[10.0,40.0,70.0,100.0,130.0],"r":1.0,"c":1},"R":{"v":[120.0,210.0,300.0,390.0,480.0],"r":null,"c":1}},{"n":"Garen","id":"garen","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"T"},"Q":{"v":[30.0,60.0,90.0,120.0,150.0],"r":1.5,"c":1},"E":{"v":[4.0,7.0,10.0,13.0,16.0],"r":0.52,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Gnar","id":"gnar","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"M"},"Q":{"v":[45.0,90.0,135.0,180.0,225.0],"r":null,"c":1},"W":{"v":[45.0,75.0,105.0,135.0,165.0],"r":null,"c":1},"E":{"v":[80.0,115.0,150.0,185.0,220.0],"r":null,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Gragas","id":"gragas","role":"Fighter","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[80.0,120.0,160.0,200.0,240.0],"r":null,"c":1},"W":{"v":[20.0,50.0,80.0,110.0,140.0],"r":null,"c":1},"E":{"v":[80.0,125.0,170.0,215.0,260.0],"r":0.6,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":0.8,"c":1}},{"n":"Graves","id":"graves","role":"Marksman","dmg":{"Q":"P","W":"P","E":"-","R":"P"},"Q":{"v":[50.0,75.0,100.0,125.0,150.0],"r":0.65,"c":1},"W":{"v":[60.0,110.0,160.0,210.0,260.0],"r":null,"c":1},"R":{"v":[275.0,425.0,575.0,725.0,875.0],"r":null,"c":1}},{"n":"Gwen","id":"gwen","role":"Fighter","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[60.0,85.0,110.0,135.0,160.0],"r":0.35,"c":1},"E":{"v":[15.0,15.0,15.0,15.0,15.0],"r":null,"c":1},"R":{"v":[30.0,50.0,70.0,90.0,110.0],"r":null,"c":1}},{"n":"Hecarim","id":"hecarim","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[60.0,90.0,120.0,150.0,180.0],"r":null,"c":1},"W":{"v":[25.0,25.0,25.0,25.0,25.0],"r":0.8,"c":1},"E":{"v":[30.0,45.0,60.0,75.0,90.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":1.0,"c":1}},{"n":"Heimerdinger","id":"heimerdinger","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[7.0,11.0,15.0,19.0,23.0],"r":0.55,"c":1},"W":{"v":[50.0,75.0,100.0,125.0,150.0],"r":null,"c":1},"E":{"v":[60.0,100.0,140.0,180.0,220.0],"r":null,"c":1},"R":{"v":[32.0,45.0,58.0,71.0,84.0],"r":null,"c":1}},{"n":"Hwei","id":"hwei","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[50.0,80.0,110.0,140.0,170.0],"r":null,"c":1},"W":{"v":[20.0,30.0,40.0,50.0,60.0],"r":null,"c":1},"E":{"v":[70.0,110.0,150.0,190.0,230.0],"r":null,"c":1},"R":{"v":[200.0,325.0,450.0,575.0,700.0],"r":null,"c":1}},{"n":"Illaoi","id":"illaoi","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"W":{"v":[20.0,30.0,40.0,50.0,60.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Irelia","id":"irelia","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"M"},"Q":{"v":[5.0,25.0,45.0,65.0,85.0],"r":null,"c":1},"W":{"v":[10.0,20.0,30.0,40.0,50.0],"r":null,"c":1},"E":{"v":[70.0,110.0,150.0,190.0,230.0],"r":1.0,"c":1},"R":{"v":[125.0,200.0,275.0,350.0,425.0],"r":0.7,"c":1}},{"n":"Ivern","id":"ivern","role":"Support","dmg":{"Q":"-","W":"-","E":"-","R":"-"},"Q":{"v":[80.0,125.0,170.0,215.0,260.0],"r":0.7,"c":1},"W":{"v":[20.0,27.5,35.0,42.5,50.0],"r":null,"c":1},"E":{"v":[70.0,90.0,110.0,130.0,150.0],"r":null,"c":1},"R":{"v":[90.0,140.0,190.0,240.0,290.0],"r":null,"c":1}},{"n":"Janna","id":"janna","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"-"},"Q":{"v":[55.0,90.0,125.0,160.0,195.0],"r":null,"c":1},"W":{"v":[55.0,85.0,115.0,145.0,175.0],"r":0.06,"c":1}},{"n":"Jarvaniv","id":"jarvaniv","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[90.0,130.0,170.0,210.0,250.0],"r":null,"c":1},"R":{"v":[200.0,325.0,450.0,575.0,700.0],"r":null,"c":1}},{"n":"Jax","id":"jax","role":"Fighter","dmg":{"Q":"M","W":"M","E":"P","R":"P"},"Q":{"v":[65.0,105.0,145.0,185.0,225.0],"r":null,"c":1},"W":{"v":[50.0,85.0,120.0,155.0,190.0],"r":null,"c":1},"E":{"v":[40.0,70.0,100.0,130.0,160.0],"r":0.7,"c":1},"R":{"v":[100.0,175.0,250.0,325.0,400.0],"r":null,"c":1}},{"n":"Jayce","id":"jayce","role":"Fighter","dmg":{"Q":"P","W":"M","E":"P","R":"M"},"Q":{"v":[60.0,110.0,160.0,210.0,260.0],"r":null,"c":1},"W":{"v":[140.0,200.0,260.0,320.0,380.0],"r":null,"c":1}},{"n":"Jhin","id":"jhin","role":"Marksman","dmg":{"Q":"P","W":"P","E":"M","R":"P"},"Q":{"v":[44.0,69.0,94.0,119.0,144.0],"r":0.74,"c":1},"W":{"v":[70.0,105.0,140.0,175.0,210.0],"r":null,"c":1},"E":{"v":[20.0,80.0,140.0,200.0,260.0],"r":null,"c":1},"R":{"v":[64.0,128.0,192.0,256.0,320.0],"r":0.25,"c":1}},{"n":"Jinx","id":"jinx","role":"Marksman","dmg":{"Q":"-","W":"P","E":"M","R":"P"},"W":{"v":[10.0,60.0,110.0,160.0,210.0],"r":1.4,"c":1},"E":{"v":[90.0,140.0,190.0,240.0,290.0],"r":null,"c":1},"R":{"v":[20.0,35.0,50.0,65.0,80.0],"r":null,"c":1}},{"n":"Kaisa","id":"kaisa","role":"Marksman","dmg":{"Q":"P","W":"M","E":"-","R":"-"},"Q":{"v":[40.0,55.0,70.0,85.0,100.0],"r":0.2,"c":1}},{"n":"Kalista","id":"kalista","role":"Marksman","dmg":{"Q":"P","W":"-","E":"-","R":"P"},"Q":{"v":[10.0,75.0,140.0,205.0,270.0],"r":1.05,"c":1},"W":{"v":[100.0,125.0,150.0,175.0,200.0],"r":null,"c":1},"E":{"v":[5.0,15.0,25.0,35.0,45.0],"r":0.4,"c":1}},{"n":"Karma","id":"karma","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"-"},"Q":{"v":[60.0,110.0,160.0,210.0,260.0],"r":0.7,"c":1},"W":{"v":[40.0,65.0,90.0,115.0,140.0],"r":0.45,"c":1},"R":{"v":[40.0,130.0,220.0,310.0,400.0],"r":0.5,"c":1}},{"n":"Karthus","id":"karthus","role":"Mage","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[40.0,59.0,78.0,97.0,116.0],"r":0.35,"c":1},"E":{"v":[30.0,50.0,70.0,90.0,110.0],"r":0.2,"c":1},"R":{"v":[200.0,350.0,500.0,650.0,800.0],"r":0.7,"c":1}},{"n":"Kassadin","id":"kassadin","role":"Assassin","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[65.0,95.0,125.0,155.0,185.0],"r":null,"c":1},"W":{"v":[50.0,75.0,100.0,125.0,150.0],"r":null,"c":1},"E":{"v":[70.0,100.0,130.0,160.0,190.0],"r":0.7,"c":1},"R":{"v":[70.0,90.0,110.0,110.0,110.0],"r":0.5,"c":1}},{"n":"Katarina","id":"katarina","role":"Assassin","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[80.0,115.0,150.0,185.0,220.0],"r":0.4,"c":1},"E":{"v":[20.0,30.0,40.0,50.0,60.0],"r":0.25,"c":1},"R":{"v":[25.0,37.5,50.0,62.5,75.0],"r":0.19,"c":1}},{"n":"Kayle","id":"kayle","role":"Fighter","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[60.0,90.0,120.0,150.0,180.0],"r":null,"c":1},"E":{"v":[15.0,20.0,25.0,30.0,35.0],"r":0.2,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Kayn","id":"kayn","role":"Assassin","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[6.0,6.0,6.0,6.0,6.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Kennen","id":"kennen","role":"Mage","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"W":{"v":[35.0,45.0,55.0,65.0,75.0],"r":1.2,"c":1},"E":{"v":[80.0,120.0,160.0,200.0,240.0],"r":null,"c":1},"R":{"v":[40.0,75.0,110.0,145.0,180.0],"r":0.225,"c":1}},{"n":"Khazix","id":"khazix","role":"Assassin","dmg":{"Q":"P","W":"P","E":"P","R":"-"},"E":{"v":[65.0,100.0,135.0,170.0,205.0],"r":0.4,"c":1}},{"n":"Kindred","id":"kindred","role":"Marksman","dmg":{"Q":"P","W":"P","E":"P","R":"-"},"W":{"v":[25.0,30.0,35.0,40.0,45.0],"r":0.2,"c":1},"E":{"v":[80.0,110.0,140.0,170.0,200.0],"r":0.05,"c":1}},{"n":"Kled","id":"kled","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[35.0,50.0,65.0,80.0,95.0],"r":null,"c":1},"W":{"v":[20.0,30.0,40.0,50.0,60.0],"r":null,"c":1},"E":{"v":[35.0,60.0,85.0,110.0,135.0],"r":null,"c":1}},{"n":"Kogmaw","id":"kogmaw","role":"Marksman","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[80.0,125.0,170.0,215.0,260.0],"r":0.9,"c":1},"W":{"v":[3.0,3.8,4.5,5.2,6.0],"r":0.015,"c":1},"E":{"v":[70.0,110.0,150.0,190.0,230.0],"r":0.65,"c":1},"R":{"v":[100.0,140.0,180.0,220.0,260.0],"r":0.45,"c":1}},{"n":"Ksante","id":"ksante","role":"Tank","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[70.0,100.0,130.0,160.0,190.0],"r":null,"c":1},"W":{"v":[45.0,75.0,105.0,135.0,165.0],"r":null,"c":1},"E":{"v":[60.0,60.0,60.0,60.0,60.0],"r":null,"c":1},"R":{"v":[80.0,115.0,150.0,185.0,220.0],"r":null,"c":1}},{"n":"Leblanc","id":"leblanc","role":"Assassin","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[65.0,90.0,115.0,140.0,165.0],"r":0.4,"c":1},"W":{"v":[75.0,115.0,155.0,195.0,235.0],"r":0.8,"c":1},"E":{"v":[50.0,70.0,90.0,110.0,130.0],"r":0.85,"c":1}},{"n":"Leesin","id":"leesin","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[65.0,95.0,125.0,155.0,185.0],"r":0.95,"c":1},"E":{"v":[35.0,60.0,85.0,110.0,135.0],"r":null,"c":1},"R":{"v":[175.0,400.0,625.0,850.0,1075.0],"r":null,"c":1}},{"n":"Leona","id":"leona","role":"Tank","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"W":{"v":[8.0,12.0,16.0,20.0,24.0],"r":0.4,"c":1},"R":{"v":[30.0,40.0,50.0,60.0,70.0],"r":0.15,"c":1}},{"n":"Lillia","id":"lillia","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[35.0,45.0,55.0,65.0,75.0],"r":0.35,"c":1},"W":{"v":[80.0,100.0,120.0,140.0,160.0],"r":null,"c":1},"E":{"v":[60.0,85.0,110.0,135.0,160.0],"r":0.5,"c":1},"R":{"v":[100.0,150.0,200.0,250.0,300.0],"r":null,"c":1}},{"n":"Lissandra","id":"lissandra","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[80.0,115.0,150.0,185.0,220.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":0.75,"c":1}},{"n":"Lucian","id":"lucian","role":"Marksman","dmg":{"Q":"P","W":"M","E":"-","R":"P"},"Q":{"v":[80.0,115.0,150.0,185.0,220.0],"r":null,"c":1},"W":{"v":[75.0,110.0,145.0,180.0,215.0],"r":null,"c":1},"R":{"v":[15.0,30.0,45.0,60.0,75.0],"r":null,"c":1}},{"n":"Lulu","id":"lulu","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"-"},"Q":{"v":[60.0,95.0,130.0,165.0,200.0],"r":0.5,"c":1},"E":{"v":[70.0,110.0,150.0,190.0,230.0],"r":null,"c":1}},{"n":"Lux","id":"lux","role":"Mage","dmg":{"Q":"M","W":"-","E":"-","R":"M"},"Q":{"v":[80.0,120.0,160.0,200.0,240.0],"r":0.75,"c":1},"R":{"v":[300.0,400.0,500.0,600.0,700.0],"r":null,"c":1}},{"n":"Malphite","id":"malphite","role":"Tank","dmg":{"Q":"M","W":"-","E":"P","R":"M"},"Q":{"v":[70.0,120.0,170.0,220.0,270.0],"r":null,"c":1},"W":{"v":[30.0,40.0,50.0,60.0,70.0],"r":null,"c":1},"E":{"v":[60.0,95.0,130.0,165.0,200.0],"r":null,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Malzahar","id":"malzahar","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"W":{"v":[12.0,14.0,16.0,18.0,20.0],"r":0.4,"c":1},"E":{"v":[80.0,115.0,150.0,185.0,220.0],"r":null,"c":1},"R":{"v":[125.0,200.0,275.0,350.0,425.0],"r":0.8,"c":1}},{"n":"Maokai","id":"maokai","role":"Tank","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[75.0,120.0,165.0,210.0,255.0],"r":0.4,"c":1},"W":{"v":[60.0,85.0,110.0,135.0,160.0],"r":null,"c":1},"E":{"v":[50.0,75.0,100.0,125.0,150.0],"r":0.25,"c":1},"R":{"v":[150.0,225.0,300.0,375.0,450.0],"r":null,"c":1}},{"n":"Masteryi","id":"masteryi","role":"Assassin","dmg":{"Q":"P","W":"-","E":"M","R":"P"},"Q":{"v":[20.0,40.0,60.0,80.0,100.0],"r":null,"c":1},"E":{"v":[20.0,25.0,30.0,35.0,40.0],"r":0.35,"c":1}},{"n":"Mel","id":"mel","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[5.0,7.0,9.0,11.0,13.0],"r":null,"c":1},"E":{"v":[60.0,105.0,150.0,195.0,240.0],"r":0.08,"c":1},"R":{"v":[125.0,200.0,275.0,350.0,425.0],"r":null,"c":1}},{"n":"Milio","id":"milio","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"-"},"Q":{"v":[80.0,140.0,200.0,260.0,320.0],"r":null,"c":1}},{"n":"Missfortune","id":"missfortune","role":"Marksman","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[20.0,45.0,70.0,95.0,120.0],"r":1.0,"c":1},"E":{"v":[35.0,50.0,65.0,80.0,95.0],"r":0.6,"c":1},"R":{"v":[20.0,30.0,40.0,50.0,60.0],"r":0.25,"c":1}},{"n":"Monkeyking","id":"monkeyking","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[20.0,45.0,70.0,95.0,120.0],"r":0.5,"c":1},"E":{"v":[80.0,120.0,160.0,200.0,240.0],"r":null,"c":1}},{"n":"Mordekaiser","id":"mordekaiser","role":"Fighter","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[80.0,115.0,150.0,185.0,220.0],"r":0.7,"c":1},"E":{"v":[60.0,75.0,90.0,105.0,120.0],"r":null,"c":1}},{"n":"Morgana","id":"morgana","role":"Support","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[80.0,135.0,190.0,245.0,300.0],"r":null,"c":1},"W":{"v":[18.0,31.0,44.0,57.0,70.0],"r":0.2,"c":1},"R":{"v":[200.0,275.0,350.0,425.0,500.0],"r":null,"c":1}},{"n":"Naafiri","id":"naafiri","role":"Assassin","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[35.0,40.0,45.0,50.0,55.0],"r":0.7,"c":1},"E":{"v":[15.0,25.0,35.0,45.0,55.0],"r":0.4,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Nami","id":"nami","role":"Support","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[90.0,145.0,200.0,255.0,310.0],"r":0.5,"c":1},"W":{"v":[60.0,95.0,130.0,165.0,200.0],"r":null,"c":1},"E":{"v":[20.0,30.0,40.0,50.0,60.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Nasus","id":"nasus","role":"Fighter","dmg":{"Q":"P","W":"-","E":"M","R":"-"},"Q":{"v":[40.0,60.0,80.0,100.0,120.0],"r":null,"c":1},"R":{"v":[240.0,240.0,240.0,240.0,240.0],"r":null,"c":1}},{"n":"Nautilus","id":"nautilus","role":"Tank","dmg":{"Q":"-","W":"M","E":"M","R":"M"},"Q":{"v":[85.0,130.0,175.0,220.0,265.0],"r":null,"c":1},"W":{"v":[30.0,40.0,50.0,60.0,70.0],"r":null,"c":1},"E":{"v":[55.0,90.0,125.0,160.0,195.0],"r":null,"c":1},"R":{"v":[150.0,275.0,400.0,525.0,650.0],"r":null,"c":1}},{"n":"Neeko","id":"neeko","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[60.0,110.0,160.0,210.0,260.0],"r":null,"c":1},"W":{"v":[30.0,65.0,100.0,135.0,170.0],"r":0.6,"c":1},"E":{"v":[70.0,105.0,140.0,175.0,210.0],"r":null,"c":1},"R":{"v":[150.0,350.0,550.0,750.0,950.0],"r":null,"c":1}},{"n":"Nidalee","id":"nidalee","role":"Assassin","dmg":{"Q":"M","W":"-","E":"P","R":"M"},"Q":{"v":[5.0,30.0,55.0,80.0,105.0],"r":0.5,"c":1},"R":{"v":[5.0,30.0,55.0,80.0,105.0],"r":0.4,"c":1}},{"n":"Nilah","id":"nilah","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[0.0,10.0,20.0,30.0,40.0],"r":1.0,"c":1},"E":{"v":[60.0,70.0,80.0,90.0,100.0],"r":null,"c":1},"R":{"v":[125.0,225.0,325.0,425.0,525.0],"r":null,"c":1}},{"n":"Nocturne","id":"nocturne","role":"Assassin","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[65.0,110.0,155.0,200.0,245.0],"r":null,"c":1},"R":{"v":[150.0,275.0,400.0,525.0,650.0],"r":null,"c":1}},{"n":"Nunu","id":"nunu","role":"Tank","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[60.0,100.0,140.0,180.0,220.0],"r":null,"c":1},"W":{"v":[180.0,225.0,270.0,315.0,360.0],"r":1.5,"c":1},"E":{"v":[15.0,22.5,30.0,37.5,45.0],"r":null,"c":1},"R":{"v":[625.0,925.0,1275.0,1275.0,1275.0],"r":null,"c":1}},{"n":"Olaf","id":"olaf","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[70.0,120.0,170.0,220.0,270.0],"r":null,"c":1}},{"n":"Orianna","id":"orianna","role":"Mage","dmg":{"Q":"M","W":"M","E":"-","R":"M"},"W":{"v":[70.0,110.0,150.0,190.0,230.0],"r":0.8,"c":1},"R":{"v":[250.0,400.0,550.0,700.0,850.0],"r":null,"c":1}},{"n":"Ornn","id":"ornn","role":"Tank","dmg":{"Q":"M","W":"M","E":"P","R":"M"},"Q":{"v":[20.0,45.0,70.0,95.0,120.0],"r":null,"c":1},"W":{"v":[100.0,150.0,200.0,250.0,300.0],"r":null,"c":1},"E":{"v":[80.0,125.0,170.0,215.0,260.0],"r":null,"c":1},"R":{"v":[125.0,175.0,225.0,275.0,325.0],"r":null,"c":1}},{"n":"Pantheon","id":"pantheon","role":"Fighter","dmg":{"Q":"P","W":"M","E":"P","R":"M"},"Q":{"v":[70.0,100.0,130.0,160.0,190.0],"r":null,"c":1},"W":{"v":[150.0,150.0,150.0,150.0,150.0],"r":null,"c":1},"E":{"v":[55.0,105.0,155.0,205.0,255.0],"r":null,"c":1},"R":{"v":[300.0,500.0,700.0,900.0,1100.0],"r":1.0,"c":1}},{"n":"Poppy","id":"poppy","role":"Tank","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[9.0,9.0,9.0,9.0,9.0],"r":null,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Pyke","id":"pyke","role":"Support","dmg":{"Q":"P","W":"-","E":"P","R":"T"},"Q":{"v":[100.0,150.0,200.0,250.0,300.0],"r":null,"c":1},"E":{"v":[100.0,150.0,200.0,250.0,300.0],"r":null,"c":1}},{"n":"Qiyana","id":"qiyana","role":"Assassin","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[70.0,100.0,130.0,160.0,190.0],"r":null,"c":1},"W":{"v":[8.0,16.0,24.0,32.0,40.0],"r":0.45,"c":1},"E":{"v":[50.0,90.0,130.0,170.0,210.0],"r":0.5,"c":1},"R":{"v":[100.0,200.0,300.0,400.0,500.0],"r":null,"c":1}},{"n":"Quinn","id":"quinn","role":"Marksman","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[65.0,100.0,135.0,170.0,205.0],"r":1.0,"c":1},"R":{"v":[60.0,90.0,120.0,150.0,180.0],"r":0.35,"c":1}},{"n":"Rakan","id":"rakan","role":"Support","dmg":{"Q":"M","W":"M","E":"-","R":"M"},"Q":{"v":[70.0,115.0,160.0,205.0,250.0],"r":null,"c":1},"W":{"v":[70.0,120.0,170.0,220.0,270.0],"r":null,"c":1}},{"n":"Rammus","id":"rammus","role":"Tank","dmg":{"Q":"-","W":"M","E":"M","R":"M"},"Q":{"v":[80.0,120.0,160.0,200.0,240.0],"r":1.0,"c":1},"W":{"v":[15.0,15.0,15.0,15.0,15.0],"r":null,"c":1},"E":{"v":[80.0,100.0,120.0,140.0,160.0],"r":0.7,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":0.6,"c":1}},{"n":"Reksai","id":"reksai","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[5.0,10.0,15.0,20.0,25.0],"r":0.5,"c":1},"W":{"v":[30.0,55.0,80.0,105.0,130.0],"r":0.5,"c":1},"E":{"v":[100.0,135.0,170.0,205.0,240.0],"r":0.8,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":1.0,"c":1}},{"n":"Rell","id":"rell","role":"Tank","dmg":{"Q":"M","W":"M","E":"-","R":"M"},"Q":{"v":[60.0,100.0,140.0,180.0,220.0],"r":null,"c":1},"W":{"v":[10.0,25.0,40.0,55.0,70.0],"r":null,"c":1},"R":{"v":[60.0,100.0,140.0,180.0,220.0],"r":null,"c":1}},{"n":"Renata","id":"renata","role":"Support","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[80.0,125.0,170.0,215.0,260.0],"r":0.8,"c":1},"E":{"v":[65.0,95.0,125.0,155.0,185.0],"r":null,"c":1}},{"n":"Renekton","id":"renekton","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"M"},"Q":{"v":[60.0,90.0,120.0,150.0,180.0],"r":1.0,"c":1},"W":{"v":[5.0,20.0,35.0,50.0,65.0],"r":0.75,"c":1},"E":{"v":[40.0,70.0,100.0,130.0,160.0],"r":0.9,"c":1},"R":{"v":[60.0,150.0,240.0,330.0,420.0],"r":null,"c":1}},{"n":"Rengar","id":"rengar","role":"Assassin","dmg":{"Q":"P","W":"M","E":"P","R":"P"},"Q":{"v":[20.0,55.0,90.0,125.0,160.0],"r":0.05,"c":1},"W":{"v":[50.0,80.0,110.0,140.0,170.0],"r":0.8,"c":1},"E":{"v":[55.0,100.0,145.0,190.0,235.0],"r":null,"c":1}},{"n":"Riven","id":"riven","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[45.0,75.0,105.0,135.0,165.0],"r":0.8,"c":1}},{"n":"Rumble","id":"rumble","role":"Fighter","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[60.0,85.0,110.0,135.0,160.0],"r":1.0,"c":1},"E":{"v":[55.0,80.0,105.0,130.0,155.0],"r":null,"c":1},"R":{"v":[120.0,200.0,280.0,360.0,440.0],"r":null,"c":1}},{"n":"Ryze","id":"ryze","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"-"},"Q":{"v":[75.0,95.0,115.0,135.0,155.0],"r":null,"c":1},"W":{"v":[60.0,90.0,120.0,150.0,180.0],"r":null,"c":1},"E":{"v":[60.0,90.0,120.0,150.0,180.0],"r":null,"c":1},"R":{"v":[50.0,75.0,100.0,125.0,150.0],"r":null,"c":1}},{"n":"Samira","id":"samira","role":"Marksman","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[0.0,5.0,10.0,15.0,20.0],"r":1.1,"c":1},"W":{"v":[20.0,35.0,50.0,65.0,80.0],"r":null,"c":1},"E":{"v":[50.0,60.0,70.0,80.0,90.0],"r":null,"c":1},"R":{"v":[20.0,40.0,60.0,80.0,100.0],"r":0.3,"c":1}},{"n":"Sejuani","id":"sejuani","role":"Tank","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[90.0,140.0,190.0,240.0,290.0],"r":0.75,"c":1},"W":{"v":[5.0,25.0,45.0,65.0,85.0],"r":0.6,"c":1},"E":{"v":[55.0,105.0,155.0,205.0,255.0],"r":0.7,"c":1}},{"n":"Senna","id":"senna","role":"Support","dmg":{"Q":"P","W":"-","E":"-","R":"P"},"Q":{"v":[30.0,55.0,80.0,105.0,130.0],"r":null,"c":1},"W":{"v":[70.0,110.0,150.0,190.0,230.0],"r":null,"c":1},"R":{"v":[250.0,400.0,550.0,700.0,850.0],"r":null,"c":1}},{"n":"Seraphine","id":"seraphine","role":"Support","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"Q":{"v":[60.0,85.0,110.0,135.0,160.0],"r":0.5,"c":1},"E":{"v":[70.0,100.0,130.0,160.0,190.0],"r":0.5,"c":1},"R":{"v":[150.0,200.0,250.0,300.0,350.0],"r":0.4,"c":1}},{"n":"Sett","id":"sett","role":"Fighter","dmg":{"Q":"P","W":"P","E":"-","R":"P"},"Q":{"v":[10.0,20.0,30.0,40.0,50.0],"r":1.2,"c":1},"W":{"v":[80.0,100.0,120.0,140.0,160.0],"r":null,"c":1},"E":{"v":[50.0,70.0,90.0,110.0,130.0],"r":null,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Shaco","id":"shaco","role":"Assassin","dmg":{"Q":"-","W":"-","E":"P","R":"P"},"Q":{"v":[25.0,35.0,45.0,55.0,65.0],"r":null,"c":1},"W":{"v":[10.0,15.0,20.0,25.0,30.0],"r":0.12,"c":1},"E":{"v":[70.0,95.0,120.0,145.0,170.0],"r":0.6,"c":1},"R":{"v":[25.0,50.0,75.0,100.0,125.0],"r":null,"c":1}},{"n":"Shen","id":"shen","role":"Tank","dmg":{"Q":"P","W":"-","E":"P","R":"-"},"Q":{"v":[10.0,10.0,10.0,10.0,10.0],"r":null,"c":1},"E":{"v":[60.0,85.0,110.0,135.0,160.0],"r":null,"c":1}},{"n":"Shyvana","id":"shyvana","role":"Fighter","dmg":{"Q":"P","W":"M","E":"M","R":"M"},"Q":{"v":[10.0,15.0,20.0,25.0,30.0],"r":null,"c":1},"W":{"v":[80.0,100.0,120.0,140.0,160.0],"r":null,"c":1},"E":{"v":[80.0,110.0,140.0,170.0,200.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Singed","id":"singed","role":"Tank","dmg":{"Q":"M","W":"-","E":"-","R":"-"},"Q":{"v":[20.0,30.0,40.0,50.0,60.0],"r":0.425,"c":1}},{"n":"Sion","id":"sion","role":"Tank","dmg":{"Q":"P","W":"M","E":"P","R":"P"},"Q":{"v":[40.0,60.0,80.0,100.0,120.0],"r":0.8,"c":1},"E":{"v":[65.0,100.0,135.0,170.0,205.0],"r":0.55,"c":1},"R":{"v":[150.0,300.0,450.0,600.0,750.0],"r":null,"c":1}},{"n":"Sivir","id":"sivir","role":"Marksman","dmg":{"Q":"P","W":"P","E":"-","R":"-"},"Q":{"v":[60.0,85.0,110.0,135.0,160.0],"r":0.7,"c":1}},{"n":"Skarner","id":"skarner","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[10.0,20.0,30.0,40.0,50.0],"r":0.9,"c":1},"W":{"v":[50.0,70.0,90.0,110.0,130.0],"r":null,"c":1},"E":{"v":[30.0,60.0,90.0,120.0,150.0],"r":1.2,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Smolder","id":"smolder","role":"Marksman","dmg":{"Q":"P","W":"M","E":"-","R":"M"},"Q":{"v":[65.0,80.0,95.0,110.0,125.0],"r":1.3,"c":1},"W":{"v":[60.0,70.0,80.0,90.0,100.0],"r":0.6,"c":1},"E":{"v":[10.0,15.0,20.0,25.0,30.0],"r":0.3,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":1.1,"c":1}},{"n":"Sona","id":"sona","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"M"},"Q":{"v":[50.0,85.0,120.0,155.0,190.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Soraka","id":"soraka","role":"Support","dmg":{"Q":"M","W":"-","E":"M","R":"-"},"Q":{"v":[85.0,120.0,155.0,190.0,225.0],"r":null,"c":1},"E":{"v":[70.0,95.0,120.0,145.0,170.0],"r":null,"c":1}},{"n":"Swain","id":"swain","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[60.0,90.0,120.0,150.0,180.0],"r":0.45,"c":1},"W":{"v":[70.0,105.0,140.0,175.0,210.0],"r":0.6,"c":1},"E":{"v":[90.0,130.0,170.0,210.0,250.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Sylas","id":"sylas","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[40.0,60.0,80.0,100.0,120.0],"r":0.4,"c":1},"W":{"v":[75.0,110.0,145.0,180.0,215.0],"r":null,"c":1},"E":{"v":[80.0,130.0,180.0,230.0,280.0],"r":0.8,"c":1}},{"n":"Syndra","id":"syndra","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[80.0,115.0,150.0,185.0,220.0],"r":null,"c":1},"W":{"v":[70.0,100.0,130.0,160.0,190.0],"r":null,"c":1},"E":{"v":[60.0,95.0,130.0,165.0,200.0],"r":0.6,"c":1},"R":{"v":[80.0,120.0,160.0,200.0,240.0],"r":0.2,"c":1}},{"n":"Tahmkench","id":"tahmkench","role":"Tank","dmg":{"Q":"M","W":"-","E":"-","R":"M"},"Q":{"v":[75.0,120.0,165.0,210.0,255.0],"r":null,"c":1},"W":{"v":[100.0,135.0,170.0,205.0,240.0],"r":null,"c":1},"R":{"v":[100.0,250.0,400.0,550.0,700.0],"r":null,"c":1}},{"n":"Taliyah","id":"taliyah","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[50.0,67.5,85.0,102.5,120.0],"r":0.5,"c":1},"E":{"v":[60.0,105.0,150.0,195.0,240.0],"r":null,"c":1}},{"n":"Talon","id":"talon","role":"Assassin","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[65.0,85.0,105.0,125.0,145.0],"r":null,"c":1},"W":{"v":[50.0,60.0,70.0,80.0,90.0],"r":null,"c":1},"R":{"v":[90.0,135.0,180.0,225.0,270.0],"r":null,"c":1}},{"n":"Taric","id":"taric","role":"Support","dmg":{"Q":"-","W":"-","E":"M","R":"T"}},{"n":"Teemo","id":"teemo","role":"Marksman","dmg":{"Q":"M","W":"-","E":"-","R":"M"},"Q":{"v":[80.0,125.0,170.0,215.0,260.0],"r":0.7,"c":1},"W":{"v":[5.0,5.0,5.0,5.0,5.0],"r":null,"c":1},"E":{"v":[9.0,23.0,37.0,51.0,65.0],"r":0.1,"c":1},"R":{"v":[200.0,325.0,450.0,575.0,700.0],"r":0.5,"c":1}},{"n":"Thresh","id":"thresh","role":"Support","dmg":{"Q":"-","W":"-","E":"M","R":"M"},"Q":{"v":[100.0,150.0,200.0,250.0,300.0],"r":0.9,"c":1}},{"n":"Tristana","id":"tristana","role":"Marksman","dmg":{"Q":"-","W":"M","E":"P","R":"M"},"W":{"v":[70.0,105.0,140.0,175.0,210.0],"r":1.0,"c":1},"E":{"v":[60.0,85.0,110.0,135.0,160.0],"r":0.8,"c":1},"R":{"v":[225.0,275.0,325.0,375.0,425.0],"r":null,"c":1}},{"n":"Trundle","id":"trundle","role":"Fighter","dmg":{"Q":"P","W":"-","E":"M","R":"-"},"Q":{"v":[10.0,30.0,50.0,70.0,90.0],"r":0.55,"c":1}},{"n":"Tryndamere","id":"tryndamere","role":"Fighter","dmg":{"Q":"-","W":"-","E":"P","R":"-"},"E":{"v":[80.0,120.0,160.0,200.0,240.0],"r":1.0,"c":1}},{"n":"Twistedfate","id":"twistedfate","role":"Mage","dmg":{"Q":"M","W":"M","E":"-","R":"-"},"Q":{"v":[60.0,105.0,150.0,195.0,240.0],"r":0.85,"c":1},"E":{"v":[65.0,90.0,115.0,140.0,165.0],"r":0.4,"c":1}},{"n":"Twitch","id":"twitch","role":"Marksman","dmg":{"Q":"-","W":"-","E":"P","R":"P"},"E":{"v":[20.0,30.0,40.0,50.0,60.0],"r":0.35,"c":1}},{"n":"Udyr","id":"udyr","role":"Fighter","dmg":{"Q":"M","W":"P","E":"M","R":"M"},"Q":{"v":[5.0,13.0,21.0,29.0,37.0],"r":0.0,"c":1},"R":{"v":[60.0,108.0,156.0,204.0,252.0],"r":0.0,"c":2}},{"n":"Urgot","id":"urgot","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[25.0,70.0,115.0,160.0,205.0],"r":null,"c":1},"W":{"v":[12.0,12.0,12.0,12.0,12.0],"r":0.34,"c":1},"E":{"v":[90.0,120.0,150.0,180.0,210.0],"r":null,"c":1},"R":{"v":[100.0,225.0,350.0,475.0,600.0],"r":null,"c":1}},{"n":"Varus","id":"varus","role":"Marksman","dmg":{"Q":"P","W":"M","E":"M","R":"M"},"Q":{"v":[80.0,150.0,220.0,290.0,360.0],"r":1.5,"c":1},"W":{"v":[8.0,17.0,26.0,35.0,44.0],"r":0.15,"c":1},"E":{"v":[60.0,90.0,120.0,150.0,180.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Vayne","id":"vayne","role":"Marksman","dmg":{"Q":"P","W":"T","E":"P","R":"-"},"W":{"v":[50.0,65.0,80.0,95.0,110.0],"r":null,"c":1},"E":{"v":[50.0,85.0,120.0,155.0,190.0],"r":null,"c":1},"R":{"v":[35.0,50.0,65.0,80.0,95.0],"r":null,"c":1}},{"n":"Veigar","id":"veigar","role":"Mage","dmg":{"Q":"M","W":"M","E":"-","R":"M"},"Q":{"v":[80.0,120.0,160.0,200.0,240.0],"r":0.7,"c":1},"W":{"v":[85.0,140.0,195.0,250.0,305.0],"r":1.1,"c":1},"R":{"v":[175.0,250.0,325.0,400.0,475.0],"r":0.85,"c":1}},{"n":"Velkoz","id":"velkoz","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[80.0,120.0,160.0,200.0,240.0],"r":null,"c":1},"W":{"v":[30.0,50.0,70.0,90.0,110.0],"r":null,"c":1},"E":{"v":[70.0,100.0,130.0,160.0,190.0],"r":0.3,"c":1}},{"n":"Vex","id":"vex","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[70.0,115.0,160.0,205.0,250.0],"r":0.7,"c":1},"W":{"v":[80.0,120.0,160.0,200.0,240.0],"r":null,"c":1},"E":{"v":[50.0,70.0,90.0,110.0,130.0],"r":0.6,"c":1},"R":{"v":[75.0,125.0,175.0,225.0,275.0],"r":null,"c":1}},{"n":"Vi","id":"vi","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[40.0,60.0,80.0,100.0,120.0],"r":0.6,"c":1},"W":{"v":[4.0,5.0,6.0,7.0,8.0],"r":null,"c":1},"E":{"v":[10.0,30.0,50.0,70.0,90.0],"r":1.1,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":null,"c":1}},{"n":"Viego","id":"viego","role":"Assassin","dmg":{"Q":"P","W":"M","E":"-","R":"-"},"Q":{"v":[25.0,40.0,55.0,70.0,85.0],"r":0.7,"c":1},"W":{"v":[80.0,135.0,190.0,245.0,300.0],"r":null,"c":1},"R":{"v":[12.0,16.0,20.0,24.0,28.0],"r":1.2,"c":1}},{"n":"Viktor","id":"viktor","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[60.0,75.0,90.0,105.0,120.0],"r":0.4,"c":1},"E":{"v":[70.0,110.0,150.0,190.0,230.0],"r":0.5,"c":1},"R":{"v":[100.0,175.0,250.0,325.0,400.0],"r":0.5,"c":1}},{"n":"Vladimir","id":"vladimir","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"W":{"v":[80.0,135.0,190.0,245.0,300.0],"r":null,"c":1}},{"n":"Volibear","id":"volibear","role":"Fighter","dmg":{"Q":"P","W":"P","E":"M","R":"M"},"Q":{"v":[10.0,20.0,30.0,40.0,50.0],"r":null,"c":1},"W":{"v":[5.0,30.0,55.0,80.0,105.0],"r":null,"c":1},"E":{"v":[80.0,110.0,140.0,170.0,200.0],"r":0.7,"c":1},"R":{"v":[300.0,500.0,700.0,900.0,1100.0],"r":1.25,"c":1}},{"n":"Warwick","id":"warwick","role":"Fighter","dmg":{"Q":"M","W":"P","E":"-","R":"M"},"Q":{"v":[6.0,7.0,8.0,9.0,10.0],"r":1.2,"c":1},"R":{"v":[175.0,350.0,525.0,700.0,875.0],"r":null,"c":1}},{"n":"Xayah","id":"xayah","role":"Marksman","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[45.0,60.0,75.0,90.0,105.0],"r":null,"c":1},"W":{"v":[25.0,25.0,25.0,25.0,25.0],"r":null,"c":1},"E":{"v":[50.0,65.0,80.0,95.0,110.0],"r":0.4,"c":1},"R":{"v":[200.0,300.0,400.0,500.0,600.0],"r":null,"c":1}},{"n":"Xerath","id":"xerath","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[75.0,115.0,155.0,195.0,235.0],"r":null,"c":1},"W":{"v":[50.0,85.0,120.0,155.0,190.0],"r":null,"c":1},"R":{"v":[170.0,220.0,270.0,320.0,370.0],"r":null,"c":1}},{"n":"Xinzhao","id":"xinzhao","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"W":{"v":[30.0,40.0,50.0,60.0,70.0],"r":null,"c":1},"R":{"v":[75.0,175.0,275.0,375.0,475.0],"r":null,"c":1}},{"n":"Yasuo","id":"yasuo","role":"Fighter","dmg":{"Q":"P","W":"-","E":"M","R":"P"},"Q":{"v":[20.0,45.0,70.0,95.0,120.0],"r":1.05,"c":1},"E":{"v":[70.0,85.0,100.0,115.0,130.0],"r":0.6,"c":1},"R":{"v":[200.0,350.0,500.0,650.0,800.0],"r":null,"c":1}},{"n":"Yone","id":"yone","role":"Fighter","dmg":{"Q":"P","W":"P","E":"M","R":"P"},"Q":{"v":[25.0,50.0,75.0,100.0,125.0],"r":1.1,"c":1},"W":{"v":[10.0,20.0,30.0,40.0,50.0],"r":null,"c":1},"R":{"v":[200.0,400.0,600.0,800.0,1000.0],"r":0.8,"c":1}},{"n":"Yorick","id":"yorick","role":"Fighter","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[30.0,50.0,70.0,90.0,110.0],"r":null,"c":1},"E":{"v":[6.0,6.5,7.0,7.5,8.0],"r":null,"c":1},"R":{"v":[30.0,30.0,30.0,30.0,30.0],"r":0.3,"c":1}},{"n":"Yunara","id":"yunara","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[5.0,10.0,15.0,20.0,25.0],"r":null,"c":1},"W":{"v":[55.0,95.0,135.0,175.0,215.0],"r":0.85,"c":1},"R":{"v":[160.0,320.0,480.0,640.0,800.0],"r":0.75,"c":1}},{"n":"Yuumi","id":"yuumi","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"M"},"Q":{"v":[60.0,95.0,130.0,165.0,200.0],"r":0.2,"c":1},"R":{"v":[75.0,125.0,175.0,225.0,275.0],"r":null,"c":1}},{"n":"Zaahen","id":"zaahen","role":"Fighter","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[15.0,30.0,45.0,60.0,75.0],"r":null,"c":1},"W":{"v":[40.0,60.0,80.0,100.0,120.0],"r":null,"c":1},"E":{"v":[40.0,60.0,80.0,100.0,120.0],"r":null,"c":1},"R":{"v":[250.0,400.0,550.0,700.0,850.0],"r":null,"c":1}},{"n":"Zac","id":"zac","role":"Tank","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[60.0,90.0,120.0,150.0,180.0],"r":0.3,"c":1},"W":{"v":[40.0,50.0,60.0,70.0,80.0],"r":null,"c":1},"R":{"v":[120.0,190.0,260.0,330.0,400.0],"r":0.4,"c":1}},{"n":"Zed","id":"zed","role":"Assassin","dmg":{"Q":"P","W":"-","E":"P","R":"P"},"Q":{"v":[80.0,120.0,160.0,200.0,240.0],"r":null,"c":1},"E":{"v":[70.0,95.0,120.0,145.0,170.0],"r":0.8,"c":1}},{"n":"Zeri","id":"zeri","role":"Marksman","dmg":{"Q":"P","W":"P","E":"P","R":"P"},"Q":{"v":[15.0,17.0,19.0,21.0,23.0],"r":1.2,"c":1},"W":{"v":[30.0,70.0,110.0,150.0,190.0],"r":1.2,"c":1},"E":{"v":[17.0,19.0,21.0,23.0,25.0],"r":null,"c":1},"R":{"v":[150.0,250.0,350.0,450.0,550.0],"r":0.4,"c":1}},{"n":"Ziggs","id":"ziggs","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[80.0,130.0,180.0,230.0,280.0],"r":0.8,"c":1},"W":{"v":[70.0,105.0,140.0,175.0,210.0],"r":null,"c":1},"E":{"v":[30.0,70.0,110.0,150.0,190.0],"r":0.45,"c":1},"R":{"v":[300.0,500.0,700.0,900.0,1100.0],"r":1.0,"c":1}},{"n":"Zilean","id":"zilean","role":"Support","dmg":{"Q":"M","W":"-","E":"-","R":"M"},"Q":{"v":[75.0,115.0,165.0,230.0,300.0],"r":0.9,"c":1}},{"n":"Zoe","id":"zoe","role":"Mage","dmg":{"Q":"M","W":"M","E":"M","R":"M"},"Q":{"v":[50.0,80.0,110.0,140.0,170.0],"r":0.6,"c":1},"W":{"v":[20.0,30.0,40.0,50.0,60.0],"r":0.15,"c":1},"E":{"v":[70.0,110.0,150.0,190.0,230.0],"r":null,"c":1}},{"n":"Zyra","id":"zyra","role":"Support","dmg":{"Q":"M","W":"-","E":"M","R":"M"},"E":{"v":[60.0,95.0,130.0,165.0,200.0],"r":null,"c":1},"R":{"v":[50.0,50.0,50.0,50.0,50.0],"r":null,"c":1}}];
+const ROLE_C={Fighter:'#e07040',Mage:'#7060e0',Assassin:'#40c060',Tank:'#60a0e0',Support:'#e0a0c0',Marksman:'#e0c040'};
+const DMG_C={P:'#e07840',M:'#7060e0',T:'#40d0a0','-':'#2a3a4d'};
+const SC={Q:'#3399ff',W:'#33cc77',E:'#ffaa33',R:'#ff4444'};
+let rank=5,actSlots=new Set(['Q','W','E','R']),sel=new Set(),view='bar',dimLeg=new Set(),rFilt='',srchQ='';
+const getDmg=(c,s)=>c[s]?c[s].v[rank-1]:null;
+const getRatio=(c,s)=>c[s]?(c[s].r||0):0;
+function visData(){return RAW.filter(c=>{if(srchQ&&!c.n.toLowerCase().includes(srchQ))return false;if(rFilt&&c.role!==rFilt)return false;return true;});}
+function cData(){const v=visData();if(sel.size>0&&view!=='bar')return v.filter(c=>sel.has(c.id));return v;}
+function getColor(c,s){const cb=document.getElementById('colorby').value;if(cb==='role')return ROLE_C[c.role]||'#555';if(cb==='dmgtype'){const dt=c.dmg?c.dmg[s]:'-';return DMG_C[dt]||'#555';}return SC[s];}
+
+// List
+function buildList(){
+  const vis=visData();
+  document.getElementById('lc').textContent=`(${vis.length})`;
+  const c=document.getElementById('cl');c.innerHTML='';
+  vis.forEach(ch=>{
+    const d=document.createElement('div');
+    d.className='ci'+(sel.has(ch.id)?' sel':'');d.dataset.id=ch.id;
+    d.innerHTML=`<span class="rd" style="background:${ROLE_C[ch.role]||'#555'}"></span><span class="cn">${ch.n}</span><span style="font-size:10px;color:var(--text-d)">${ch.role}</span>`;
+    d.onclick=()=>togSel(ch.id);c.appendChild(d);
+  });
+  document.getElementById('sn').textContent=sel.size;
+}
+function togSel(id){sel.has(id)?sel.delete(id):sel.add(id);document.querySelectorAll('.ci').forEach(el=>el.className='ci'+(sel.has(el.dataset.id)?' sel':''));document.getElementById('sn').textContent=sel.size;draw();}
+function clrSel(){sel.clear();buildList();draw();}
+function filt(){srchQ=document.getElementById('srch').value.toLowerCase().trim();rFilt=document.getElementById('role').value;buildList();draw();}
+function setRank(r){rank=r;document.getElementById('rlbl').textContent=r;draw();}
+function togSlot(s){if(actSlots.has(s)){if(actSlots.size>1)actSlots.delete(s);}else actSlots.add(s);document.querySelectorAll('.sp').forEach(p=>{const sl=p.dataset.s;p.className='sp'+(actSlots.has(sl)?` on-${sl}`:'');});draw();}
+function setView(v){view=v;['bar','scat','scale'].forEach(n=>document.getElementById('v'+n).className='vb'+(n===v.replace('scatter','scat')?' act':''));buildLeg();draw();}
+
+// Legend
+function buildLeg(){
+  const leg=document.getElementById('leg');leg.innerHTML='';
+  const cb=document.getElementById('colorby').value;
+  let items=[];
+  if(cb==='role')items=Object.entries(ROLE_C).map(([k,c])=>({key:k,label:k,color:c}));
+  else if(cb==='dmgtype')items=[{key:'P',label:'Physical',color:DMG_C.P},{key:'M',label:'Magic',color:DMG_C.M},{key:'T',label:'True',color:DMG_C.T}];
+  else items=[...actSlots].map(s=>({key:s,label:`${s} slot`,color:SC[s]}));
+  items.forEach(({key,label,color})=>{
+    const d=document.createElement('div');
+    d.className='li'+(dimLeg.has(key)?' dim':'');
+    d.innerHTML=`<span class="ld" style="background:${color}"></span>${label}`;
+    d.onclick=()=>{dimLeg.has(key)?dimLeg.delete(key):dimLeg.add(key);buildLeg();draw();};
+    leg.appendChild(d);
+  });
+}
+
+// Tooltip
+const tt=document.getElementById('tt');
+function showTT(evt,html){tt.innerHTML=html;tt.style.opacity=1;moveTT(evt);}
+function moveTT(evt){const x=evt.clientX+14,y=evt.clientY-10;tt.style.left=(x+230>window.innerWidth?x-244:x)+'px';tt.style.top=(y+160>window.innerHeight?y-120:y)+'px';}
+function hideTT(){tt.style.opacity=0;}
+function cTT(c){
+  const slots=[...actSlots].filter(s=>c[s]);
+  let rows=slots.map(s=>{const v=c[s].v[rank-1];const dt=c.dmg?c.dmg[s]:'-';const dtL=dt==='P'?'Physical':dt==='M'?'Magic':dt==='T'?'True':'—';const cast=c[s].c>1?` (${c[s].c}×)`:'';return `<div class="ttr"><span class="ttl">${s}${cast}</span><span class="ttv" style="color:${SC[s]}">${Math.round(v)}</span></div><div class="ttr" style="margin-top:-1px"><span class="ttl" style="font-size:10px">${dtL}${c[s].r?` · +${Math.round(c[s].r*100)}% AD`:''}</span><span></span></div>`;}).join('');
+  return `<div class="ttn">${c.n}</div><div class="ttr"><span class="ttl">Role</span><span class="ttv" style="color:${ROLE_C[c.role]}">${c.role}</span></div><div style="height:1px;background:var(--border);margin:5px 0"></div>${rows}`;
+}
+
+// ── DRAW ─────────────────────────────────────────────────
+const svgEl=d3.select('#chart-svg');
+function draw(){
+  svgEl.selectAll('*').remove();
+  const el=document.getElementById('chart-wrap');
+  const W=el.clientWidth,H=el.clientHeight;
+  if(W<10||H<10)return;
+  svgEl.attr('viewBox',`0 0 ${W} ${H}`);
+  document.getElementById('hint').textContent='';
+  if(view==='bar')drawBar(W,H);
+  else if(view==='scatter')drawScat(W,H);
+  else drawScale(W,H);
+}
+
+// BAR
+function drawBar(W,H){
+  const m={top:28,right:16,bottom:90,left:52};
+  const iW=W-m.left-m.right,iH=H-m.top-m.bottom;
+  const g=svgEl.append('g').attr('transform',`translate(${m.left},${m.top})`);
+  const slots=[...actSlots];
+  let data=[...cData()].sort((a,b)=>{
+    const sa=slots.reduce((acc,s)=>acc+(getDmg(a,s)||0),0);
+    const sb=slots.reduce((acc,s)=>acc+(getDmg(b,s)||0),0);
+    return sb-sa;
+  }).slice(0,55);
+  const x0=d3.scaleBand().domain(data.map(d=>d.id)).range([0,iW]).paddingInner(.18).paddingOuter(.06);
+  const x1=d3.scaleBand().domain(slots).range([0,x0.bandwidth()]).padding(.05);
+  const maxV=d3.max(data,d=>d3.max(slots,s=>getDmg(d,s)||0))||1;
+  const y=d3.scaleLinear().domain([0,maxV*1.1]).range([iH,0]);
+  g.selectAll('.gl').data(y.ticks(6)).join('line').attr('class','gl').attr('x1',0).attr('x2',iW).attr('y1',d=>y(d)).attr('y2',d=>y(d)).attr('stroke','#1a2a3d');
+  g.append('g').call(d3.axisLeft(y).ticks(6).tickFormat(d3.format('.0f')).tickSize(0)).call(ax=>{ax.select('.domain').remove();ax.selectAll('text').attr('fill','#4a5568').attr('font-size',10).attr('dx','-3');});
+  const cg=g.selectAll('.cg').data(data).join('g').attr('class','cg').attr('transform',d=>`translate(${x0(d.id)},0)`);
+  cg.selectAll('rect').data(d=>slots.filter(s=>!dimLeg.has(s)&&!dimLeg.has(d.role)&&!dimLeg.has(d.dmg?d.dmg[s]:'-')).map(s=>({s,d,v:getDmg(d,s)||0}))).join('rect')
+    .attr('x',d=>x1(d.s)).attr('width',x1.bandwidth()).attr('y',d=>y(d.v)).attr('height',d=>iH-y(d.v))
+    .attr('fill',d=>getColor(d.d,d.s)).attr('opacity',d=>sel.size===0||sel.has(d.d.id)?0.85:0.15).attr('rx',2)
+    .on('mousemove',(evt,d)=>{showTT(evt,cTT(d.d));moveTT(evt);}).on('mouseleave',hideTT)
+    .on('click',(evt,d)=>{evt.stopPropagation();togSel(d.d.id);});
+  const xAx=g.append('g').attr('transform',`translate(0,${iH})`);
+  xAx.selectAll('text').data(data).join('text')
+    .attr('x',d=>x0(d.id)+x0.bandwidth()/2).attr('y',12).attr('text-anchor','end')
+    .attr('transform',d=>`rotate(-42,${x0(d.id)+x0.bandwidth()/2},12)`)
+    .attr('fill',d=>sel.has(d.id)?'#c8aa6e':'#4a5568').attr('font-family','Barlow Condensed,sans-serif')
+    .attr('font-weight',d=>sel.has(d.id)?700:400).attr('font-size',10).text(d=>d.n)
+    .on('click',(evt,d)=>togSel(d.id)).style('cursor','pointer');
+  g.append('text').attr('x',-iH/2).attr('y',-40).attr('transform','rotate(-90)').attr('text-anchor','middle').attr('fill','#4a5568').attr('font-size',10).text(`Base Damage — Rank ${rank}`);
+  if(data.length===55)g.append('text').attr('x',iW).attr('y',-10).attr('text-anchor','end').attr('fill','#4a5568').attr('font-size',9).text('Top 55 shown · filter/select to compare');
+}
+
+// SCATTER
+function drawScat(W,H){
+  const m={top:28,right:130,bottom:54,left:54};
+  const iW=W-m.left-m.right,iH=H-m.top-m.bottom;
+  const g=svgEl.append('g').attr('transform',`translate(${m.left},${m.top})`);
+  const slots=[...actSlots];
+  const data=cData();
+  const pts=[];
+  data.forEach(c=>{
+    slots.forEach(s=>{
+      if(!c[s]||dimLeg.has(c.role)||dimLeg.has(c.dmg?c.dmg[s]:'-')||dimLeg.has(s))return;
+      const base=getDmg(c,s);if(base===null)return;
+      pts.push({c,s,base,ratio:getRatio(c,s)});
+    });
+  });
+  const x=d3.scaleLinear().domain([0,d3.max(pts,d=>d.ratio)||1]).nice().range([0,iW]);
+  const y=d3.scaleLinear().domain([0,d3.max(pts,d=>d.base)||1]).nice().range([iH,0]);
+  g.selectAll('.gl').data(y.ticks(6)).join('line').attr('class','gl').attr('x1',0).attr('x2',iW).attr('y1',d=>y(d)).attr('y2',d=>y(d)).attr('stroke','#1a2a3d');
+  g.selectAll('.gv').data(x.ticks(5)).join('line').attr('class','gv').attr('x1',d=>x(d)).attr('x2',d=>x(d)).attr('y1',0).attr('y2',iH).attr('stroke','#1a2a3d');
+  g.append('g').attr('transform',`translate(0,${iH})`).call(d3.axisBottom(x).ticks(5).tickFormat(d=>d===0?'0':'+'+Math.round(d*100)+'% AD').tickSize(0)).call(ax=>{ax.select('.domain').remove();ax.selectAll('text').attr('fill','#4a5568').attr('font-size',10);});
+  g.append('g').call(d3.axisLeft(y).ticks(6).tickFormat(d3.format('.0f')).tickSize(0)).call(ax=>{ax.select('.domain').remove();ax.selectAll('text').attr('fill','#4a5568').attr('font-size',10);});
+  g.append('text').attr('x',iW/2).attr('y',iH+44).attr('text-anchor','middle').attr('fill','#4a5568').attr('font-size',10).text('AD Ratio');
+  g.append('text').attr('x',-iH/2).attr('y',-42).attr('transform','rotate(-90)').attr('text-anchor','middle').attr('fill','#4a5568').attr('font-size',10).text(`Base Damage — Rank ${rank}`);
+  // Quadrant shading labels
+  [['HIGH BASE','LOW RATIO',iW*.03,14],['HIGH BASE','HIGH RATIO',iW*.97,14],['LOW BASE','LOW RATIO',iW*.03,iH-6],['LOW BASE','HIGH RATIO',iW*.97,iH-6]].forEach(([a,b,cx,cy])=>{
+    g.append('text').attr('x',cx).attr('y',cy).attr('text-anchor',cx>iW/2?'end':'start').attr('fill','#1e2e40').attr('font-size',9).attr('font-family','Barlow Condensed,sans-serif').attr('letter-spacing','.1em').text(`${a} · ${b}`);
+  });
+  g.selectAll('circle').data(pts).join('circle')
+    .attr('cx',d=>x(d.ratio)).attr('cy',d=>y(d.base))
+    .attr('r',d=>sel.size===0||sel.has(d.c.id)?5.5:3.5)
+    .attr('fill',d=>getColor(d.c,d.s)).attr('stroke','#0a1428').attr('stroke-width',0.8)
+    .attr('opacity',d=>sel.size===0||sel.has(d.c.id)?0.85:0.18)
+    .on('mousemove',(evt,d)=>{showTT(evt,cTT(d.c));moveTT(evt);}).on('mouseleave',hideTT)
+    .on('click',(evt,d)=>{evt.stopPropagation();togSel(d.c.id);});
+  if(sel.size>0&&sel.size<=12){
+    pts.filter(d=>sel.has(d.c.id)).forEach(d=>{
+      g.append('text').attr('x',x(d.ratio)+7).attr('y',y(d.base)+4).attr('fill','#c8aa6e').attr('font-size',9).attr('font-family','Barlow Condensed,sans-serif').text(`${d.c.n} ${d.s}`);
+    });
+  }
+  // Right legend
+  let ly=0;
+  const cb=document.getElementById('colorby').value;
+  const legItems=cb==='role'?Object.entries(ROLE_C).map(([k,c])=>({key:k,label:k,color:c})):cb==='dmgtype'?[{key:'P',label:'Physical',color:DMG_C.P},{key:'M',label:'Magic',color:DMG_C.M},{key:'T',label:'True',color:DMG_C.T}]:[...actSlots].map(s=>({key:s,label:`${s} slot`,color:SC[s]}));
+  legItems.forEach(({key,label,color})=>{
+    const lg=svgEl.append('g').attr('transform',`translate(${W-120},${m.top+ly})`).style('cursor','pointer').attr('opacity',dimLeg.has(key)?.3:1).on('click',()=>{dimLeg.has(key)?dimLeg.delete(key):dimLeg.add(key);buildLeg();draw();});
+    lg.append('circle').attr('r',5).attr('cx',6).attr('cy',6).attr('fill',color);
+    lg.append('text').attr('x',15).attr('y',10).attr('fill','#8899aa').attr('font-size',11).text(label);
+    ly+=19;
+  });
+}
+
+// SCALE
+function drawScale(W,H){
+  const m={top:28,right:28,bottom:48,left:52};
+  const iW=W-m.left-m.right,iH=H-m.top-m.bottom;
+  const g=svgEl.append('g').attr('transform',`translate(${m.left},${m.top})`);
+  const slots=[...actSlots];
+  const data=sel.size>0?RAW.filter(c=>sel.has(c.id)):cData().slice(0,18);
+  document.getElementById('hint').textContent=sel.size===0?'← Select champions in the left panel to compare their scaling curves':'';
+  const allV=[];
+  data.forEach(c=>slots.forEach(s=>{if(c[s]&&!dimLeg.has(s))c[s].v.forEach(v=>allV.push(v));}));
+  const x=d3.scalePoint().domain(['1','2','3','4','5']).range([0,iW]).padding(.25);
+  const y=d3.scaleLinear().domain([0,(d3.max(allV)||1)*1.1]).nice().range([iH,0]);
+  g.selectAll('.gl').data(y.ticks(6)).join('line').attr('class','gl').attr('x1',0).attr('x2',iW).attr('y1',d=>y(d)).attr('y2',d=>y(d)).attr('stroke','#1a2a3d');
+  g.append('g').attr('transform',`translate(0,${iH})`).call(d3.axisBottom(x).tickFormat(d=>`Rank ${d}`).tickSize(0)).call(ax=>{ax.select('.domain').remove();ax.selectAll('text').attr('fill','#4a5568').attr('font-size',10);});
+  g.append('g').call(d3.axisLeft(y).ticks(6).tickFormat(d3.format('.0f')).tickSize(0)).call(ax=>{ax.select('.domain').remove();ax.selectAll('text').attr('fill','#4a5568').attr('font-size',10);});
+  g.append('text').attr('x',-iH/2).attr('y',-40).attr('transform','rotate(-90)').attr('text-anchor','middle').attr('fill','#4a5568').attr('font-size',10).text('Base Damage');
+  const line=d3.line().x((_,i)=>x(String(i+1))).y(d=>y(d)).curve(d3.curveMonotoneX);
+  if(data.length===0){
+    g.append('text').attr('x',iW/2).attr('y',iH/2).attr('text-anchor','middle').attr('fill','#1e2e40').attr('font-family','Barlow Condensed,sans-serif').attr('font-size',20).attr('letter-spacing','.12em').text('SELECT CHAMPIONS TO COMPARE');
+    return;
+  }
+  data.forEach(c=>{
+    slots.filter(s=>!dimLeg.has(s)).forEach(s=>{
+      if(!c[s])return;
+      const color=getColor(c,s);
+      g.append('path').datum(c[s].v).attr('fill','none').attr('stroke',color).attr('stroke-width',sel.size>0?2.5:1.5).attr('opacity',.75).attr('d',line);
+      if(sel.size>0){
+        const ex=x('5'),ey=y(c[s].v[4]);
+        g.append('text').attr('x',ex+5).attr('y',ey+4).attr('fill','#c8aa6e').attr('font-size',9).attr('font-family','Barlow Condensed,sans-serif').text(`${c.n} ${s}`);
+      }
+      g.selectAll(null).data(c[s].v).join('circle')
+        .attr('cx',(_,i)=>x(String(i+1))).attr('cy',d=>y(d)).attr('r',3).attr('fill',color).attr('opacity',.85)
+        .on('mousemove',(evt,d)=>{const ri=c[s].v.indexOf(d)+1;showTT(evt,`<div class="ttn">${c.n} — ${s}</div><div class="ttr"><span class="ttl">Rank ${ri}</span><span class="ttv" style="color:${SC[s]}">${Math.round(d)}</span></div>${c[s].r?`<div class="ttr"><span class="ttl">AD ratio</span><span class="ttv">+${Math.round(c[s].r*100)}%</span></div>`:''}`);moveTT(evt);}).on('mouseleave',hideTT);
+    });
+  });
+}
+
+document.getElementById('chart-wrap').addEventListener('click',e=>{if(e.target.tagName==='svg')clrSel();});
+buildList();buildLeg();draw();
+window.addEventListener('resize',draw);
+</script>
+</body>
+</html>
